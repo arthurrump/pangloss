@@ -18,6 +18,15 @@ local glossary = {}
 -- automatic expansion on first use only.
 local usedTracker = {}
 
+-- Table for configuration options.
+local config = {
+    -- Automatically link a term in the text to the definition in the glossary.
+    ["auto-links"] = true,
+    -- Include a title in the link, which will be displayed on hover in HTML
+    -- output. The title is based on the description of the item.
+    ["link-titles"] = true
+}
+
 -- Options for paring markdown are copied from the standard and then standalone
 -- is disabled to ensure that it can be included in the current document. This
 -- is not used often, probably only when a key is translated to inlines...
@@ -91,7 +100,7 @@ local function toBlocks(elem)
     if pandoc.utils.type(elem) == "Blocks" then
         return elem
     elseif pandoc.utils.type(elem) == "Inlines" then
-        return pandoc.Para(elem)
+        return pandoc.Blocks(pandoc.Para(elem))
     elseif pandoc.utils.type(elem) == "string" then
         local doc = pandoc.read(elem, "markdown", readerOptions)
         return doc.blocks
@@ -140,6 +149,18 @@ local function capitaliseIfLower(text)
         return capitalise(text)
     else
         return text
+    end
+end
+
+-- Read the configuration options from the metadata.
+function ReadConfig(meta)
+    if meta.pangloss then
+        if meta.pangloss["auto-links"] ~= nil then
+            config["auto-links"] = meta.pangloss["auto-links"]
+        end
+        if meta.pangloss["link-titles"] ~= nil then
+            config["link-titles"] = meta.pangloss["link-titles"]
+        end
     end
 end
 
@@ -194,7 +215,13 @@ function ReadGlossary(meta)
             if not isBlockText(entry.description) then
                 error("Glossary entry '" .. key .. "' has invalid description. Should be block text, but is of type " .. pandoc.utils.type(entry.description))
             end
-            glossary[key].description = toBlocks(entry.description)
+            local description = toBlocks(entry.description)
+            glossary[key].description = description
+            local shortDescription = pandoc.utils.blocks_to_inlines({ description[1] })
+            if #glossary[key].description > 1 then
+                shortDescription:extend({ pandoc.Space(), pandoc.Str("...") })
+            end
+            glossary[key].shortDescription = pandoc.utils.stringify(shortDescription)
         end
     else
         error("No or invalid glossary found. The glossary should be of type `table`, but got: " .. pandoc.utils.type(meta.glossary))
@@ -223,35 +250,56 @@ local function getCapitalised(key, name)
     end
 end
 
-local function getReference(abbrMod, pluralMod, key)
+local function getReference(linkMod, abbrMod, pluralMod, key)
     local lookup = string.lower(key)
     local entry = glossary[lookup]
     if entry == nil then
         error("There is no entry for " .. key .. " in the glossary.")
     end
 
+    local linkTitle = ""
+    if config["link-titles"] then
+        linkTitle = entry.shortDescription
+    end
+
+    local content
     if entry.abbreviation then
         if abbrMod == "~" or (abbrMod == "" and not usedTracker[lookup]) then
             -- Full form
             local name = getCapitalised(key, getPluralised(pluralMod, entry.name))
             local abbr = getPluralised(pluralMod, entry.abbreviation)
-            local result = name:clone()
-            result:extend({ pandoc.Space(), pandoc.Str("(") })
-            result:extend(abbr)
-            result:insert(pandoc.Str(")"))
+            
+            content = name:clone()
+            content:extend({ pandoc.Space(), pandoc.Str("(") })
+            content:extend(abbr)
+            content:insert(pandoc.Str(")"))
+
             usedTracker[lookup] = true
-            return result
         elseif abbrMod == "." or (abbrMod == "" and usedTracker[lookup]) then
             -- Short form
-            return getPluralised(pluralMod, entry.abbreviation)
+            content = getPluralised(pluralMod, entry.abbreviation)
+            if config["link-titles"] then
+                linkTitle = 
+                    pandoc.utils.stringify(capitaliseIfLower(getPluralised(pluralMod, entry.name)))
+                    .. ". " 
+                    .. linkTitle
+            end
         elseif abbrMod == "-" then
             -- Long form
-            return getCapitalised(key, getPluralised(pluralMod, entry.name))
+            content = getCapitalised(key, getPluralised(pluralMod, entry.name))
         else
             error("Unrecognized abbreviation modifier '" .. abbrMod .. "'.")
         end
     else
-        return getCapitalised(key, getPluralised(pluralMod, entry.name))
+        content = getCapitalised(key, getPluralised(pluralMod, entry.name))
+    end
+
+    -- Create a link if auotmatic links are enabled and this specific link is
+    -- not suppressed, or if this link is explicitly enabled.
+    if (config["auto-links"] and linkMod ~= "!") or linkMod == "#" then
+        return pandoc.Inlines(pandoc.Link(content, "#glossary-" .. lookup, linkTitle, { class = "glossary-link" }))
+    else
+        return content
     end
 end
 
@@ -260,9 +308,9 @@ function ReplaceInlineTerm(str)
     if string.find(str.text, "%(%+") then
         local result = pandoc.List()
         local cursor = 1
-        for startMatch, abbrMod, pluralMod, key, endMatch in str.text:gmatch("()%(%+([%-%.%~]?)(%^?)(%a[%w%-%_]*)%)()") do
+        for startMatch, linkMod, abbrMod, pluralMod, key, endMatch in str.text:gmatch("()%(%+([%!%#]?)([%-%.%~]?)(%^?)(%a[%w%-%_]*)%)()") do
             if cursor < startMatch then result:insert(pandoc.Str(str.text:sub(cursor, startMatch - 1))) end
-            result:extend(getReference(abbrMod, pluralMod, key))
+            result:extend(getReference(linkMod, abbrMod, pluralMod, key))
             cursor = endMatch
         end
 
@@ -309,24 +357,29 @@ function ReplaceGlossaryBlock(div)
         local def = {}
         for key, entry in pairsInOrder(glossary, entryComparer) do
             local description = entry.description:walk({ Str = ReplaceInlineTerm })
+            local title
             if entry.abbreviation then
-                local title = entry.abbreviation.singular:clone()
+                title = entry.abbreviation.singular:clone()
                 title:extend({ pandoc.Space(), pandoc.Str("(") })
                 title:extend(capitaliseIfLower(entry.name.singular))
                 title:insert(pandoc.Str(")"))
-                table.insert(def, { pandoc.Inlines(title), { description } })
+                title = pandoc.Inlines(title)
             else
-                table.insert(def, { capitaliseIfLower(entry.name.singular), { description } })
+                title = capitaliseIfLower(entry.name.singular)
             end
+            title = pandoc.Span(title, { id = "glossary-" .. key })
+            table.insert(def, { title, { description } })
         end
-        div.content = pandoc.Blocks(pandoc.DefinitionList(def))
-        return div
+        return pandoc.DefinitionList(def)
     end
 end
 
 return {
-    -- First execute the filter on metadata to parse the glossary
+    -- First, extract the pangloss configuration from metadata,
+    { Meta = ReadConfig },
+    -- then execute the filter on metadata to parse the glossary,
     { Meta = ReadGlossary },
-    -- Then walk over the document, replacing inline terms and the glossary block
+    -- and finally walk over the document, replacing inline terms and the
+    -- glossary block.
     { Str = ReplaceInlineTerm, Div = ReplaceGlossaryBlock }
 }

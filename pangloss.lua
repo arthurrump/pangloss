@@ -24,7 +24,9 @@ local config = {
     ["auto-links"] = true,
     -- Include a title in the link, which will be displayed on hover in HTML
     -- output. The title is based on the description of the item.
-    ["link-titles"] = true
+    ["link-titles"] = true,
+    -- Link abbreviated forms to the acronyms list rather than the glossary.
+    ["link-to-acronyms"] = true
 }
 
 -- Options for paring markdown are copied from the standard and then standalone
@@ -263,6 +265,7 @@ local function getReference(linkMod, abbrMod, pluralMod, key)
     end
 
     local content
+    local linkDestination = "glossary"
     if entry.abbreviation then
         if abbrMod == "~" or (abbrMod == "" and not usedTracker[lookup]) then
             -- Full form
@@ -284,6 +287,9 @@ local function getReference(linkMod, abbrMod, pluralMod, key)
                     .. ". " 
                     .. linkTitle
             end
+            if config["link-to-acronyms"] then
+                linkDestination = "acronyms"
+            end
         elseif abbrMod == "-" then
             -- Long form
             content = getCapitalised(key, getPluralised(pluralMod, entry.name))
@@ -297,7 +303,7 @@ local function getReference(linkMod, abbrMod, pluralMod, key)
     -- Create a link if auotmatic links are enabled and this specific link is
     -- not suppressed, or if this link is explicitly enabled.
     if (config["auto-links"] and linkMod ~= "!") or linkMod == "#" then
-        return pandoc.Inlines(pandoc.Link(content, "#glossary-" .. lookup, linkTitle, { class = "glossary-link" }))
+        return pandoc.Inlines(pandoc.Link(content, "#" .. linkDestination .. "-" .. lookup, linkTitle, { class = "glossary-link" }))
     else
         return content
     end
@@ -322,50 +328,54 @@ function ReplaceInlineTerm(str)
     end
 end
 
-local function pairsInOrder(t, comparer)
+local function pairsInOrder(t, comparer, filter)
     local orderedKeys = {}
-    for key, _ in pairs(t) do
-        table.insert(orderedKeys, key)
+    for key, value in pairs(t) do
+        if filter == nil or filter(key, value) then
+            table.insert(orderedKeys, key)
+        end
     end
     table.sort(orderedKeys, function (keyA, keyB) return comparer(t[keyA], t[keyB]) end)
     local i = 0
     return function ()
         i = i + 1
         if orderedKeys[i] == nil then return nil
-        else return orderedKeys[i], t[orderedKeys[i]] 
+        else return orderedKeys[i], t[orderedKeys[i]]
         end
     end
 end
 
-local function entryComparisonKey(entry)
+local function getName(entry)
+    return entry.name.singular
+end
+
+local function getAbbreviation(entry)
     if entry.abbreviation then
         return entry.abbreviation.singular
-    else
-        return entry.name.singular
     end
 end
 
-local function entryComparer(a, b)
-    local lexA = string.upper(pandoc.utils.stringify(entryComparisonKey(a)))
-    local lexB = string.upper(pandoc.utils.stringify(entryComparisonKey(b)))
-    return lexA < lexB
+local function entryComparer(select)
+    return
+        function (a, b)
+            local lexA = string.upper(pandoc.utils.stringify(select(a)))
+            local lexB = string.upper(pandoc.utils.stringify(select(b)))
+            return lexA < lexB
+        end
 end
 
 -- Replace the glossary block with a definition list
-function ReplaceGlossaryBlock(div)
+local function replaceGlossaryBlock(div)
     if div.identifier == "glossary" then
         local def = {}
-        for key, entry in pairsInOrder(glossary, entryComparer) do
+        for key, entry in pairsInOrder(glossary, entryComparer(getName)) do
             local description = entry.description:walk({ Str = ReplaceInlineTerm })
-            local title
+            local title = capitaliseIfLower(entry.name.singular)
             if entry.abbreviation then
-                title = entry.abbreviation.singular:clone()
                 title:extend({ pandoc.Space(), pandoc.Str("(") })
-                title:extend(capitaliseIfLower(entry.name.singular))
+                title:extend(entry.abbreviation.singular)
                 title:insert(pandoc.Str(")"))
                 title = pandoc.Inlines(title)
-            else
-                title = capitaliseIfLower(entry.name.singular)
             end
             title = pandoc.Span(title, { id = "glossary-" .. key })
             table.insert(def, { title, { description } })
@@ -374,12 +384,31 @@ function ReplaceGlossaryBlock(div)
     end
 end
 
+-- Replace the acronyms block with a definition list
+local function replaceAcronymsBlock(div)
+    if div.identifier == "acronyms" then
+        local def = {}
+        for key, entry in pairsInOrder(glossary, entryComparer(getAbbreviation), function (_, entry) return entry.abbreviation ~= nil end) do
+            local abbrev = capitaliseIfLower(entry.abbreviation.singular)
+            local title = pandoc.Span(abbrev, { id = "acronyms-" .. key })
+            local name = capitaliseIfLower(entry.name.singular)
+            local content = pandoc.Inlines(pandoc.Link(name, "#glossary-" .. key, entry.shortDescription, { class = "glossary-link" }))
+            table.insert(def, { title, { content } })
+        end
+        return pandoc.DefinitionList(def)
+    end
+end
+
+function ReplaceDefinitionBlocks(div)
+    return replaceGlossaryBlock(div) or replaceAcronymsBlock(div)
+end
+
 return {
     -- First, extract the pangloss configuration from metadata,
     { Meta = ReadConfig },
     -- then execute the filter on metadata to parse the glossary,
     { Meta = ReadGlossary },
     -- and finally walk over the document, replacing inline terms and the
-    -- glossary block.
-    { Str = ReplaceInlineTerm, Div = ReplaceGlossaryBlock }
+    -- glossary and acronyms blocks.
+    { Str = ReplaceInlineTerm, Div = ReplaceDefinitionBlocks }
 }

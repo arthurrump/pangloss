@@ -43,6 +43,18 @@ Weird things may (but should not) happen is a term is included in another word, 
 <div style="height: 100vh"></div>
 ```
 
+# Acronyms
+
+:::{#acronyms}
+:::
+
+```{=latex}
+\pagebreak
+```
+```{=html}
+<div style="height: 100vh"></div>
+```
+
 # Glossary
 
 :::{#glossary}

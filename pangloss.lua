@@ -392,7 +392,7 @@ local function replaceAcronymsBlock(div)
             local abbrev = capitaliseIfLower(entry.abbreviation.singular)
             local title = pandoc.Span(abbrev, { id = "acronyms-" .. key })
             local name = capitaliseIfLower(entry.name.singular)
-            local content = pandoc.Inlines(pandoc.Link(name, "#glossary-" .. key, entry.shortDescription, { class = "glossary-link" }))
+            local content = pandoc.Para(pandoc.Link(name, "#glossary-" .. key, entry.shortDescription, { class = "glossary-link" }))
             table.insert(def, { title, { content } })
         end
         return pandoc.DefinitionList(def)

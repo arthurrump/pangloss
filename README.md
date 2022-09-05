@@ -158,6 +158,7 @@ pangloss:
   link-to-acronyms: true # true | false
   # Link only the first linkable mention of a term in each paragraph. If 
   # the first use is suppressed using `!`, the second use will be linked, etc.
+  # Does not work with Pandoc v2.18 and earlier, confirmed working with v2.19.2.
   link-only-once: false # true | false
 ```
 

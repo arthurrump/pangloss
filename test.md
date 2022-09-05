@@ -1,4 +1,6 @@
 ---
+pangloss:
+  link-only-once: true
 glossary:
   ast:
     name: abstract syntax tree
@@ -35,6 +37,10 @@ glossary:
 This is a test file for a (+pandoc) (+filter). (+^Filter) are pretty cool. (+Pandoc) will translate this document to an (+ast), which is then passed to the Pangloss (+filter). Pangloss walks over the (+ast) and replaces the references with the proper term and expansion of acronyms. It also creates a link to the glossary entry for that term. It also finds the proper location in the (+-ast) to insert the glossary.
 
 Weird things may (but should not) happen is a term is included in another word, like with test(+pandoc), (+pandoc)(+filter) or (+pandoc)-(+filter). Linking to a term can be disabled, as in this (+!example). Or enabled, if we disabled it globally, like in these (+#^example), (+#criterion).
+
+This paragraph references (+pandoc) multiple times, because (+pandoc) is such a lovely program. Only the first mention of (+pandoc) should be linked to the glossary entry, if that option is enabled.
+
+In the next paragraph (+pandoc) should be linked again, but only for the first time (+pandoc) is mentioned, except when a forced link to (+#pandoc) is used.
 
 ```{=latex}
 \pagebreak

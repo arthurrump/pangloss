@@ -17,6 +17,9 @@ local glossary = {}
 -- Table used to track which acronyms have already been used, to enable
 -- automatic expansion on first use only.
 local usedTracker = {}
+-- Table used to track which terms have been used in the current paragraph,
+-- to enable linking only the first use back to the glossary.
+local linkedInParaTracker = {}
 
 -- Table for configuration options.
 local config = {
@@ -26,7 +29,10 @@ local config = {
     -- output. The title is based on the description of the item.
     ["link-titles"] = true,
     -- Link abbreviated forms to the acronyms list rather than the glossary.
-    ["link-to-acronyms"] = true
+    ["link-to-acronyms"] = true,
+    -- Link only the first linkable mention of a term in each paragraph. If the
+    -- first use is suppressed using `!`, the second use will be linked, etc.
+    ["link-only-once"] = false
 }
 
 -- Options for paring markdown are copied from the standard and then standalone
@@ -162,6 +168,12 @@ function ReadConfig(meta)
         end
         if meta.pangloss["link-titles"] ~= nil then
             config["link-titles"] = meta.pangloss["link-titles"]
+        end
+        if meta.pangloss["link-to-acronyms"] ~= nil then
+            config["link-to-acronyms"] = meta.pangloss["link-to-acronyms"]
+        end
+        if meta.pangloss["link-only-once"] ~= nil then
+            config["link-only-once"] = meta.pangloss["link-only-once"]
         end
     end
 end
@@ -300,9 +312,11 @@ local function getReference(linkMod, abbrMod, pluralMod, key)
         content = getCapitalised(key, getPluralised(pluralMod, entry.name))
     end
 
-    -- Create a link if auotmatic links are enabled and this specific link is
-    -- not suppressed, or if this link is explicitly enabled.
-    if (config["auto-links"] and linkMod ~= "!") or linkMod == "#" then
+    -- Create a link if auotmatic links are enabled, this specific link is not
+    -- suppressed and everything should be linked or this is the first linking
+    -- in this paragraph; or if this link is explicitly enabled.
+    if (config["auto-links"] and linkMod ~= "!" and (not config["link-only-once"] or not linkedInParaTracker[lookup])) or linkMod == "#" then
+        linkedInParaTracker[lookup] = true
         return pandoc.Inlines(pandoc.Link(content, "#" .. linkDestination .. "-" .. lookup, linkTitle, { class = "glossary-link" }))
     else
         return content
@@ -409,6 +423,12 @@ return {
     -- then execute the filter on metadata to parse the glossary,
     { Meta = ReadGlossary },
     -- and finally walk over the document, replacing inline terms and the
-    -- glossary and acronyms blocks.
-    { Str = ReplaceInlineTerm, Div = ReplaceDefinitionBlocks }
+    -- glossary and acronyms blocks. This traversal is top-down, to reset the
+    -- usedInParaTracker each time a new paragraph is entered
+    { traverse = "topdown",
+      Str = ReplaceInlineTerm,
+      Div = ReplaceDefinitionBlocks,
+      Para = function (para)
+          linkedInParaTracker = {}
+      end }
 }

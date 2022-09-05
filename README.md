@@ -55,6 +55,15 @@ The location to render the glossary is specified in a way similar to references:
 :::
 ```
 
+It is also possible to render a list of acronyms separately:
+
+```markdown
+:::{#acronyms}
+:::
+```
+
+If you don't want to render a list of acronyms, you should set the `link-to-acronyms` option to `false` in the metadata. This makes sure that acronyms are linked to the glossary, rather than the list of acronyms.
+
 ## Referencing terms in the text
 
 TLDR: `(+[!#][-.~][^]Key)`
@@ -145,5 +154,10 @@ pangloss:
   # Include a title in the link, which will be displayed on hover in HTML
   # output. The title is based on the description of the item.
   link-titles: true # true | false
+  # Link abbreviated forms to the acronyms list rather than the glossary.
+  link-to-acronyms: true # true | false
+  # Link only the first linkable mention of a term in each paragraph. If 
+  # the first use is suppressed using `!`, the second use will be linked, etc.
+  link-only-once: false # true | false
 ```
 

@@ -6,6 +6,12 @@ glossary:
     name: abstract syntax tree
     abbreviation: AST
     description: An abstract graph description of a program.
+  cs:
+    name:
+      singular: Computer Science
+    abbreviation:
+      singular: CS
+    description: A study with a singular acronym and title-cased name.
   pandoc:
     name: 
       singular: Pandoc
@@ -34,7 +40,7 @@ glossary:
 
 # Content
 
-This is a test file for a (+pandoc) (+filter). (+^Filter) are pretty cool. (+Pandoc) will translate this document to an (+ast), which is then passed to the Pangloss (+filter). Pangloss walks over the (+ast) and replaces the references with the proper term and expansion of acronyms. It also creates a link to the glossary entry for that term. It also finds the proper location in the (+-ast) to insert the glossary.
+This is a test file for a (+pandoc) (+filter). (+^Filter) are pretty cool. (+Pandoc) will translate this document to an (+ast), which is then passed to the Pangloss (+filter). Pangloss walks over the (+ast) and replaces the references with the proper term and expansion of acronyms. It also creates a link to the glossary entry for that term. It also finds the proper location in the (+-ast) to insert the glossary. For acronyms, the first use of (+cs) is automatically expanded, and later uses of (+cs) will use the abbreviation. We can also force this: (+.cs), (+-cs), (+~cs).
 
 Weird things may (but should not) happen is a term is included in another word, like with test(+pandoc), (+pandoc)(+filter) or (+pandoc)-(+filter). Linking to a term can be disabled, as in this (+!example). Or enabled, if we disabled it globally, like in these (+#^example), (+#criterion).
 
@@ -66,3 +72,7 @@ In the next paragraph (+pandoc) should be linked again, but only for the first t
 :::{#glossary}
 This content will be removed.
 :::
+
+# Appendix
+
+A weird thing happened once when referencing a singular abbreviation with a title-cased name after the glossary with the long ((+!-cs)) or full ((+!~cs)) references, so this appendix is here to make sure that doesn't happen.

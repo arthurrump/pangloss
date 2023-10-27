@@ -11,7 +11,12 @@ title="An abstract graph description of a program.">abstract syntax tree
 over the AST and replaces the references with the proper term and
 expansion of acronyms. It also creates a link to the glossary entry for
 that term. It also finds the proper location in the abstract syntax tree
-to insert the glossary.</p>
+to insert the glossary. For acronyms, the first use of <a
+href="#glossary-cs" class="glossary-link"
+title="A study with a singular acronym and title-cased name.">Computer
+Science (CS)</a> is automatically expanded, and later uses of CS will
+use the abbreviation. We can also force this: CS, Computer Science,
+Computer Science (CS).</p>
 <p>Weird things may (but should not) happen is a term is included in
 another word, like with test<a href="#glossary-pandoc"
 class="glossary-link"
@@ -47,6 +52,12 @@ used.</p>
 title="An abstract graph description of a program.">Abstract syntax
 tree</a></p>
 </dd>
+<dt><span id="acronyms-cs">CS</span></dt>
+<dd>
+<p><a href="#glossary-cs" class="glossary-link"
+title="A study with a singular acronym and title-cased name.">Computer
+Science</a></p>
+</dd>
 </dl>
 <div style="height: 100vh"></div>
 <h1 id="glossary">Glossary</h1>
@@ -54,6 +65,10 @@ tree</a></p>
 <dt><span id="glossary-ast">Abstract syntax tree (AST)</span></dt>
 <dd>
 <p>An abstract graph description of a program.</p>
+</dd>
+<dt><span id="glossary-cs">Computer Science (CS)</span></dt>
+<dd>
+<p>A study with a singular acronym and title-cased name.</p>
 </dd>
 <dt><span id="glossary-criterion">Criterion</span></dt>
 <dd>
@@ -83,3 +98,8 @@ make it even more awesome.</p>
 <p>Awesome converter for documents in all formats.</p>
 </dd>
 </dl>
+<h1 id="appendix">Appendix</h1>
+<p>A weird thing happened once when referencing a singular abbreviation
+with a title-cased name after the glossary with the long (Computer
+Science (CS)) or full (Computer Science (CS) (CS)) references, so this
+appendix is here to make sure that doesn’t happen.</p>

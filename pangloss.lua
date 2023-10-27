@@ -384,7 +384,7 @@ local function replaceGlossaryBlock(div)
         local def = {}
         for key, entry in pairsInOrder(glossary, entryComparer(getName)) do
             local description = entry.description:walk({ Str = ReplaceInlineTerm })
-            local title = capitaliseIfLower(entry.name.singular)
+            local title = capitaliseIfLower(entry.name.singular:clone())
             if entry.abbreviation then
                 title:extend({ pandoc.Space(), pandoc.Str("(") })
                 title:extend(entry.abbreviation.singular)
